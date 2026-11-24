@@ -1,248 +1,267 @@
 <?php
 /**
- * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
- * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * PatientCare Modern Healthcare Medical Dashboard
  *
- * Licensed under The MIT License
- * For full copyright and license information, please see the LICENSE.txt
- * Redistributions of files must retain the above copyright notice.
- *
- * @copyright Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link      https://cakephp.org CakePHP(tm) Project
- * @since     0.10.0
- * @license   https://opensource.org/licenses/mit-license.php MIT License
  * @var \App\View\AppView $this
  */
-use Cake\Cache\Cache;
-use Cake\Core\Configure;
-use Cake\Core\Plugin;
-use Cake\Datasource\ConnectionManager;
-use Cake\Error\Debugger;
-use Cake\Http\Exception\NotFoundException;
 
-$this->disableAutoLayout();
+use Cake\ORM\TableRegistry;
 
-$checkConnection = function (string $name) {
-    $error = null;
-    $connected = false;
-    try {
-        ConnectionManager::get($name)->getDriver()->connect();
-        // No exception means success
-        $connected = true;
-    } catch (Exception $connectionError) {
-        $error = $connectionError->getMessage();
-        if (method_exists($connectionError, 'getAttributes')) {
-            $attributes = $connectionError->getAttributes();
-            if (isset($attributes['message'])) {
-                $error .= '<br />' . $attributes['message'];
-            }
-        }
-        if ($name === 'debug_kit') {
-            $error = 'Try adding your current <b>top level domain</b> to the
-                <a href="https://book.cakephp.org/debugkit/5/configuration.html" target="_blank">DebugKit.safeTld</a>
-            config and reload.';
-            if (!in_array('sqlite', \PDO::getAvailableDrivers())) {
-                $error .= '<br />You need to install the PHP extension <code>pdo_sqlite</code> so DebugKit can work properly.';
-            }
-        }
-    }
+$identity = $this->getRequest()->getAttribute('identity');
 
-    return compact('connected', 'error');
-};
+// Safe query for dashboard metrics
+$patientCount = 0;
+$appointmentCount = 0;
+$doctorCount = 0;
+$carrierCount = 0;
+$invoiceCount = 0;
 
-if (!Configure::read('debug')) :
-    throw new NotFoundException(
-        'Please replace templates/Pages/home.php with your own version or re-enable debug mode.'
-    );
-endif;
-
+try {
+    $patientCount = TableRegistry::getTableLocator()->get('Patients')->find()->count();
+    $appointmentCount = TableRegistry::getTableLocator()->get('Appointments')->find()->count();
+    $doctorCount = TableRegistry::getTableLocator()->get('Doctors')->find()->count();
+    $carrierCount = TableRegistry::getTableLocator()->get('Carriers')->find()->count();
+    $invoiceCount = TableRegistry::getTableLocator()->get('Invoices')->find()->count();
+} catch (\Throwable $e) {
+    // Graceful fallback if database connection or tables are not initialized
+}
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <?= $this->Html->charset() ?>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>
-        CakePHP: the rapid development PHP framework:
-        <?= $this->fetch('title') ?>
-    </title>
-    <?= $this->Html->meta('icon') ?>
 
-    <?= $this->Html->css(['normalize.min', 'milligram.min', 'fonts', 'cake', 'home']) ?>
-
-    <?= $this->fetch('meta') ?>
-    <?= $this->fetch('css') ?>
-    <?= $this->fetch('script') ?>
-</head>
-<body>
-    <header>
-        <div class="container text-center">
-            <a href="https://cakephp.org/" target="_blank" rel="noopener">
-                <img alt="CakePHP" src="https://cakephp.org/v2/img/logos/CakePHP_Logo.svg" width="350" />
-            </a>
-            <h1>
-                Welcome to CakePHP <?= h(Configure::version()) ?> Chiffon (🍰)
-            </h1>
+<div class="dashboard-container">
+    <!-- Hero Banner -->
+    <div class="dashboard-hero">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 2rem;">
+            <div>
+                <?php if ($identity): ?>
+                    <span style="display: inline-flex; align-items: center; gap: 0.6rem; background: rgba(255, 255, 255, 0.2); padding: 0.4rem 1.2rem; border-radius: var(--pc-radius-full); font-size: 1.3rem; font-weight: 700; margin-bottom: 1.2rem; letter-spacing: 0.04em;">
+                        <i class="fa-solid fa-stethoscope"></i> CLINICAL PORTAL ACTIVE
+                    </span>
+                    <h1>Welcome, <?= h($identity['name'] ?? $identity['email'] ?? 'Medical Staff') ?></h1>
+                    <p>PatientCare Clinical Intelligence & Practice Management System. Monitor patients, schedule appointments, coordinate with insurance carriers, and track billing.</p>
+                <?php else: ?>
+                    <span style="display: inline-flex; align-items: center; gap: 0.6rem; background: rgba(255, 255, 255, 0.2); padding: 0.4rem 1.2rem; border-radius: var(--pc-radius-full); font-size: 1.3rem; font-weight: 700; margin-bottom: 1.2rem; letter-spacing: 0.04em;">
+                        <i class="fa-solid fa-shield-heart"></i> PATIENTCARE HEALTHCARE SUITE
+                    </span>
+                    <h1>Integrated Medical & Patient Care Portal</h1>
+                    <p>Secure, modern electronic healthcare administration. Streamlined patient records, doctor scheduling, insurance claims, and medical invoicing in one unified platform.</p>
+                <?php endif; ?>
+            </div>
         </div>
-    </header>
-    <main class="main">
-        <div class="container">
-            <div class="content">
-                <div class="row">
-                    <div class="column">
-                        <div class="message default text-center">
-                            <small>Please be aware that this page will not be shown if you turn off debug mode unless you replace templates/Pages/home.php with your own version.</small>
-                        </div>
-                        <div id="url-rewriting-warning" style="padding: 1rem; background: #fcebea; color: #cc1f1a; border-color: #ef5753;">
-                            <ul>
-                                <li class="bullet problem">
-                                    URL rewriting is not properly configured on your server.<br />
-                                    1) <a target="_blank" rel="noopener" href="https://book.cakephp.org/5/en/installation.html#url-rewriting">Help me configure it</a><br />
-                                    2) <a target="_blank" rel="noopener" href="https://book.cakephp.org/5/en/development/configuration.html#general-configuration">I don't / can't use URL rewriting</a>
-                                </li>
-                            </ul>
-                        </div>
-                        <?php Debugger::checkSecurityKeys(); ?>
+
+        <div class="hero-actions">
+            <?php if ($identity): ?>
+                <?= $this->Html->link(
+                    '<i class="fa-solid fa-user-plus"></i> ' . __('New Patient'),
+                    ['controller' => 'Patients', 'action' => 'add'],
+                    ['escape' => false, 'class' => 'button btn-hero-white']
+                ) ?>
+                <?= $this->Html->link(
+                    '<i class="fa-solid fa-calendar-plus"></i> ' . __('Book Appointment'),
+                    ['controller' => 'Appointments', 'action' => 'add'],
+                    ['escape' => false, 'class' => 'button btn-hero-ghost']
+                ) ?>
+                <?= $this->Html->link(
+                    '<i class="fa-solid fa-file-invoice"></i> ' . __('Generate Invoice'),
+                    ['controller' => 'Invoices', 'action' => 'add'],
+                    ['escape' => false, 'class' => 'button btn-hero-ghost']
+                ) ?>
+            <?php else: ?>
+                <?= $this->Html->link(
+                    '<i class="fa-solid fa-right-to-bracket"></i> ' . __('Access Medical Portal'),
+                    ['controller' => 'Users', 'action' => 'login'],
+                    ['escape' => false, 'class' => 'button btn-hero-white']
+                ) ?>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="stats-grid">
+        <!-- Patients Card -->
+        <a href="<?= $this->Url->build(['controller' => 'Patients', 'action' => 'index']) ?>" class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title"><?= __('Patients') ?></span>
+                <div class="stat-icon stat-icon-blue">
+                    <i class="fa-solid fa-user-injured"></i>
+                </div>
+            </div>
+            <div class="stat-value"><?= number_format($patientCount) ?></div>
+            <div class="stat-footer">
+                <span>View Patient Records</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+        </a>
+
+        <!-- Appointments Card -->
+        <a href="<?= $this->Url->build(['controller' => 'Appointments', 'action' => 'index']) ?>" class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title"><?= __('Appointments') ?></span>
+                <div class="stat-icon stat-icon-teal">
+                    <i class="fa-solid fa-calendar-check"></i>
+                </div>
+            </div>
+            <div class="stat-value"><?= number_format($appointmentCount) ?></div>
+            <div class="stat-footer">
+                <span>Manage Schedule</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+        </a>
+
+        <!-- Doctors Card -->
+        <a href="<?= $this->Url->build(['controller' => 'Doctors', 'action' => 'index']) ?>" class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title"><?= __('Doctors') ?></span>
+                <div class="stat-icon stat-icon-emerald">
+                    <i class="fa-solid fa-user-doctor"></i>
+                </div>
+            </div>
+            <div class="stat-value"><?= number_format($doctorCount) ?></div>
+            <div class="stat-footer">
+                <span>Staff Directory</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+        </a>
+
+        <!-- Carriers Card -->
+        <a href="<?= $this->Url->build(['controller' => 'Carriers', 'action' => 'index']) ?>" class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title"><?= __('Insurance Carriers') ?></span>
+                <div class="stat-icon stat-icon-amber">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+            </div>
+            <div class="stat-value"><?= number_format($carrierCount) ?></div>
+            <div class="stat-footer">
+                <span>Coverage & Policies</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+        </a>
+
+        <!-- Invoices Card -->
+        <a href="<?= $this->Url->build(['controller' => 'Invoices', 'action' => 'index']) ?>" class="stat-card">
+            <div class="stat-card-header">
+                <span class="stat-title"><?= __('Invoices & Billing') ?></span>
+                <div class="stat-icon stat-icon-rose">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+            </div>
+            <div class="stat-value"><?= number_format($invoiceCount) ?></div>
+            <div class="stat-footer">
+                <span>Financial Overview</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </div>
+        </a>
+    </div>
+
+    <!-- Quick Navigation Modules -->
+    <div style="margin-bottom: 2.5rem;">
+        <h3 style="font-weight: 800; color: var(--pc-text-heading); margin-bottom: 1.8rem; display: flex; align-items: center; gap: 0.8rem;">
+            <i class="fa-solid fa-grip" style="color: var(--pc-primary);"></i>
+            <span>Clinical Modules</span>
+        </h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(32rem, 1fr)); gap: 2rem;">
+            <!-- Module 1: Patient Management -->
+            <div class="content" style="padding: 2.4rem !important;">
+                <div style="display: flex; align-items: flex-start; gap: 1.6rem; margin-bottom: 1.6rem;">
+                    <div style="width: 4.8rem; height: 4.8rem; border-radius: 1.2rem; background: var(--pc-primary-lighter); color: var(--pc-primary); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-hospital-user"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">Patient Records</h4>
+                        <p style="margin: 0; color: var(--pc-text-muted); font-size: 1.35rem;">Manage complete patient demographic data, contact information, insurance linking, and medical history.</p>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="column">
-                        <h4>Environment</h4>
-                        <ul>
-                        <?php if (version_compare(PHP_VERSION, '8.1.0', '>=')) : ?>
-                            <li class="bullet success">Your version of PHP is 8.1.0 or higher (detected <?= PHP_VERSION ?>).</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your version of PHP is too low. You need PHP 8.1.0 or higher to use CakePHP (detected <?= PHP_VERSION ?>).</li>
-                        <?php endif; ?>
+                <div style="display: flex; gap: 0.8rem;">
+                    <?= $this->Html->link(__('View All Patients'), ['controller' => 'Patients', 'action' => 'index'], ['class' => 'button btn-sm']) ?>
+                    <?= $this->Html->link(__('Register Patient'), ['controller' => 'Patients', 'action' => 'add'], ['class' => 'button button-outline btn-sm']) ?>
+                </div>
+            </div>
 
-                        <?php if (extension_loaded('mbstring')) : ?>
-                            <li class="bullet success">Your version of PHP has the mbstring extension loaded.</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your version of PHP does NOT have the mbstring extension loaded.</li>
-                        <?php endif; ?>
-
-                        <?php if (extension_loaded('openssl')) : ?>
-                            <li class="bullet success">Your version of PHP has the openssl extension loaded.</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your version of PHP does NOT have the openssl extension loaded.</li>
-                        <?php endif; ?>
-
-                        <?php if (extension_loaded('intl')) : ?>
-                            <li class="bullet success">Your version of PHP has the intl extension loaded.</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your version of PHP does NOT have the intl extension loaded.</li>
-                        <?php endif; ?>
-
-                        <?php if (ini_get('zend.assertions') !== '1') : ?>
-                            <li class="bullet problem">You should set <code>zend.assertions</code> to <code>1</code> in your <code>php.ini</code> for your development environment.</li>
-                        <?php endif; ?>
-                        </ul>
+            <!-- Module 2: Appointment Scheduler -->
+            <div class="content" style="padding: 2.4rem !important;">
+                <div style="display: flex; align-items: flex-start; gap: 1.6rem; margin-bottom: 1.6rem;">
+                    <div style="width: 4.8rem; height: 4.8rem; border-radius: 1.2rem; background: var(--pc-teal-light); color: var(--pc-teal); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-clock"></i>
                     </div>
-                    <div class="column">
-                        <h4>Filesystem</h4>
-                        <ul>
-                        <?php if (is_writable(TMP)) : ?>
-                            <li class="bullet success">Your tmp directory is writable.</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your tmp directory is NOT writable.</li>
-                        <?php endif; ?>
-
-                        <?php if (is_writable(LOGS)) : ?>
-                            <li class="bullet success">Your logs directory is writable.</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your logs directory is NOT writable.</li>
-                        <?php endif; ?>
-
-                        <?php $settings = Cache::getConfig('_cake_translations_'); ?>
-                        <?php if (!empty($settings)) : ?>
-                            <li class="bullet success">The <em><?= h($settings['className']) ?></em> engine is being used for translations caching. To change the config edit <code>config/app.php</code></li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your translations cache is NOT working. Please check the settings in config/app.php</li>
-                        <?php endif; ?>
-                        </ul>
+                    <div>
+                        <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">Appointment Scheduler</h4>
+                        <p style="margin: 0; color: var(--pc-text-muted); font-size: 1.35rem;">Coordinate patient consultation times, assign medical practitioners, and manage clinic calendar flow.</p>
                     </div>
                 </div>
-                <hr>
-                <div class="row">
-                    <div class="column">
-                        <h4>Database</h4>
-                        <?php
-                        $result = $checkConnection('default');
-                        ?>
-                        <ul>
-                        <?php if ($result['connected']) : ?>
-                            <li class="bullet success">CakePHP is able to connect to the database.</li>
-                        <?php else : ?>
-                            <li class="bullet problem">CakePHP is NOT able to connect to the database.<br /><?= h($result['error']) ?></li>
-                        <?php endif; ?>
+                <div style="display: flex; gap: 0.8rem;">
+                    <?= $this->Html->link(__('View Schedule'), ['controller' => 'Appointments', 'action' => 'index'], ['class' => 'button btn-sm']) ?>
+                    <?= $this->Html->link(__('Book Visit'), ['controller' => 'Appointments', 'action' => 'add'], ['class' => 'button button-outline btn-sm']) ?>
+                </div>
+            </div>
 
-                        <?php $settings = Cache::getConfig('_cake_model_'); ?>
-                        <?php if (!empty($settings)) : ?>
-                            <li class="bullet success">The <em><?= h($settings['className']) ?></em> engine is being used for database schema caching. To change the config edit config/app.php</li>
-                        <?php else : ?>
-                            <li class="bullet problem">Your database schema cache is NOT working. Please check the settings in <code>config/app.php</code></li>
-                        <?php endif; ?>
-                        </ul>
+            <!-- Module 3: Medical Doctors -->
+            <div class="content" style="padding: 2.4rem !important;">
+                <div style="display: flex; align-items: flex-start; gap: 1.6rem; margin-bottom: 1.6rem;">
+                    <div style="width: 4.8rem; height: 4.8rem; border-radius: 1.2rem; background: var(--pc-emerald-light); color: var(--pc-emerald); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-user-md"></i>
                     </div>
-                    <div class="column">
-                        <h4>DebugKit</h4>
-                        <ul>
-                        <?php if (Plugin::isLoaded('DebugKit')) : ?>
-                            <li class="bullet success">DebugKit is loaded.</li>
-                            <?php
-                            $result = $checkConnection('debug_kit');
-                            ?>
-                            <?php if ($result['connected']) : ?>
-                                <li class="bullet success">DebugKit can connect to the database.</li>
-                            <?php else : ?>
-                                <li class="bullet problem">There are configuration problems present which need to be fixed:<br /><?= $result['error'] ?></li>
-                            <?php endif; ?>
-                        <?php else : ?>
-                            <li class="bullet problem">DebugKit is <strong>not</strong> loaded.</li>
-                        <?php endif; ?>
-                        </ul>
+                    <div>
+                        <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">Physicians & Staff</h4>
+                        <p style="margin: 0; color: var(--pc-text-muted); font-size: 1.35rem;">Staff roster, clinical availability status, patient intake capacity, and doctor appointment tracking.</p>
                     </div>
                 </div>
-                <hr>
-                <div class="row">
-                    <div class="column links">
-                        <h3>Getting Started</h3>
-                        <a target="_blank" rel="noopener" href="https://book.cakephp.org/5/en/">CakePHP Documentation</a>
-                        <a target="_blank" rel="noopener" href="https://book.cakephp.org/5/en/tutorials-and-examples/cms/installation.html">The 20 min CMS Tutorial</a>
+                <div style="display: flex; gap: 0.8rem;">
+                    <?= $this->Html->link(__('Doctor Directory'), ['controller' => 'Doctors', 'action' => 'index'], ['class' => 'button btn-sm']) ?>
+                    <?= $this->Html->link(__('Add Doctor'), ['controller' => 'Doctors', 'action' => 'add'], ['class' => 'button button-outline btn-sm']) ?>
+                </div>
+            </div>
+
+            <!-- Module 4: Insurance Carriers -->
+            <div class="content" style="padding: 2.4rem !important;">
+                <div style="display: flex; align-items: flex-start; gap: 1.6rem; margin-bottom: 1.6rem;">
+                    <div style="width: 4.8rem; height: 4.8rem; border-radius: 1.2rem; background: var(--pc-amber-light); color: var(--pc-amber); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-building-shield"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">Insurance Carriers</h4>
+                        <p style="margin: 0; color: var(--pc-text-muted); font-size: 1.35rem;">Maintain approved health insurance carriers, plan codes, policy details, and claim linkages.</p>
                     </div>
                 </div>
-                <hr>
-                <div class="row">
-                    <div class="column links">
-                        <h3>Help and Bug Reports</h3>
-                        <a target="_blank" rel="noopener" href="https://slack-invite.cakephp.org/">Slack</a>
-                        <a target="_blank" rel="noopener" href="https://github.com/cakephp/cakephp/issues">CakePHP Issues</a>
-                        <a target="_blank" rel="noopener" href="https://discourse.cakephp.org/">CakePHP Forum</a>
+                <div style="display: flex; gap: 0.8rem;">
+                    <?= $this->Html->link(__('Carrier List'), ['controller' => 'Carriers', 'action' => 'index'], ['class' => 'button btn-sm']) ?>
+                    <?= $this->Html->link(__('Add Carrier'), ['controller' => 'Carriers', 'action' => 'add'], ['class' => 'button button-outline btn-sm']) ?>
+                </div>
+            </div>
+
+            <!-- Module 5: Billing & Invoicing -->
+            <div class="content" style="padding: 2.4rem !important;">
+                <div style="display: flex; align-items: flex-start; gap: 1.6rem; margin-bottom: 1.6rem;">
+                    <div style="width: 4.8rem; height: 4.8rem; border-radius: 1.2rem; background: var(--pc-rose-light); color: var(--pc-rose); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">Invoices & Billing</h4>
+                        <p style="margin: 0; color: var(--pc-text-muted); font-size: 1.35rem;">Generate itemized patient invoices for consultations, procedures, due dates, and settlement tracking.</p>
                     </div>
                 </div>
-                <hr>
-                <div class="row">
-                    <div class="column links">
-                        <h3>Docs and Downloads</h3>
-                        <a target="_blank" rel="noopener" href="https://api.cakephp.org/">CakePHP API</a>
-                        <a target="_blank" rel="noopener" href="https://bakery.cakephp.org">The Bakery</a>
-                        <a target="_blank" rel="noopener" href="https://book.cakephp.org/5/en/">CakePHP Documentation</a>
-                        <a target="_blank" rel="noopener" href="https://plugins.cakephp.org">CakePHP plugins repo</a>
-                        <a target="_blank" rel="noopener" href="https://github.com/cakephp/">CakePHP Code</a>
-                        <a target="_blank" rel="noopener" href="https://github.com/FriendsOfCake/awesome-cakephp">CakePHP Awesome List</a>
-                        <a target="_blank" rel="noopener" href="https://www.cakephp.org">CakePHP</a>
+                <div style="display: flex; gap: 0.8rem;">
+                    <?= $this->Html->link(__('Manage Invoices'), ['controller' => 'Invoices', 'action' => 'index'], ['class' => 'button btn-sm']) ?>
+                    <?= $this->Html->link(__('New Invoice'), ['controller' => 'Invoices', 'action' => 'add'], ['class' => 'button button-outline btn-sm']) ?>
+                </div>
+            </div>
+
+            <!-- Module 6: User Security -->
+            <div class="content" style="padding: 2.4rem !important;">
+                <div style="display: flex; align-items: flex-start; gap: 1.6rem; margin-bottom: 1.6rem;">
+                    <div style="width: 4.8rem; height: 4.8rem; border-radius: 1.2rem; background: var(--pc-surface-subtle); color: var(--pc-text-body); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; flex-shrink: 0;">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0 0 0.4rem 0; font-weight: 700;">User Administration</h4>
+                        <p style="margin: 0; color: var(--pc-text-muted); font-size: 1.35rem;">Manage hospital staff credentials, portal users, secure password resets, and access rights.</p>
                     </div>
                 </div>
-                <hr>
-                <div class="row">
-                    <div class="column links">
-                        <h3>Training and Certification</h3>
-                        <a target="_blank" rel="noopener" href="https://cakefoundation.org/">Cake Software Foundation</a>
-                        <a target="_blank" rel="noopener" href="https://training.cakephp.org/">CakePHP Training</a>
-                    </div>
+                <div style="display: flex; gap: 0.8rem;">
+                    <?= $this->Html->link(__('Manage Users'), ['controller' => 'Users', 'action' => 'index'], ['class' => 'button btn-sm']) ?>
+                    <?= $this->Html->link(__('Add User'), ['controller' => 'Users', 'action' => 'add'], ['class' => 'button button-outline btn-sm']) ?>
                 </div>
             </div>
         </div>
-    </main>
-</body>
-</html>
+    </div>
+</div>
